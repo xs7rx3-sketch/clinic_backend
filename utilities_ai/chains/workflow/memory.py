@@ -19,7 +19,10 @@ from typing import Literal, Optional, TypeAlias
 
 from langgraph.checkpoint.base import SerializerProtocol
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+try:
+    from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+except ImportError:
+    AsyncPostgresSaver = None
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.types import Checkpointer
 from psycopg_pool import AsyncConnectionPool
@@ -84,6 +87,11 @@ async def init_checkpointer(
         checkpointer = MemorySaver()
 
     elif memory == "postgres":
+        if AsyncPostgresSaver is None:
+            raise ConfigurationError(
+                "PostgreSQL checkpointing requires 'langgraph-checkpoint-postgres'. "
+                "Install it using: pip install langgraph-checkpoint-postgres"
+            )
         if not postgres_uri:
             postgres_uri = os.environ.get("POSTGRES_URI")
             if not postgres_uri:
