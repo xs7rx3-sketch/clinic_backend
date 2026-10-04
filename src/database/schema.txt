@@ -1,0 +1,126 @@
+# ============================================================================
+# SEMANTIC LAYER — CLINIC AI DATABASE
+# ----------------------------------------------------------------------------
+# Structure  → auto-fetched from information_schema (see schema.py)
+# This file  → allowed values, business rules, security notes, semantic hints
+# ============================================================================
+# NOTE: Table names are PLURAL (hospitals, departments, doctors, patients,
+# appointments, doctor_schedules, vip_delegations, displaced_appointment_log,
+# appointment_history, chat_messages). Always use them lowercase unquoted.
+# ============================================================================
+
+table_purposes:
+  hospitals: "المستشفيات في دولة الإمارات (دبي، أبوظبي، إلخ)"
+  departments: "الأقسام الطبية وأجنحة التشريفات الملكية"
+  doctors: "الأطباء والاستشاريون مع تخصصاتهم بالعربية والإنجليزية"
+  doctor_schedules: "ساعات العمل الأسبوعية لكل طبيب"
+  patients: "سجلات المرضى: NORMAL (عادي) و VIP (شخصيات رفيعة ووفود رسمية)"
+  appointments: "المواعيد الطبية الفعلية"
+  vip_delegations: "تأمين قسم كامل لزيارة وفد رسمي"
+  displaced_appointment_log: "المواعيد المُزاحة بسبب زيارة VIP + نصوص الاعتذار بالعربية والإنجليزية"
+  appointment_history: "سجل تدقيق كامل لكل حدث على الموعد"
+  chat_messages: "سجل محادثات الذكاء الاصطناعي النصية والصوتية"
+
+# ============================================================================
+# ALLOWED VALUES — used by LLM to validate enums before generating SQL
+# ============================================================================
+allowed_values:
+  # --- Patient classification (CRITICAL for VIP routing) ---
+  patients.patient_type: [NORMAL, VIP]
+  patients.auth_provider: [EMAIL, GOOGLE, APPLE, PHONE]
+
+  # --- Appointment lifecycle ---
+  appointments.status:
+    - PENDING
+    - CONFIRMED
+    - CHECKED_IN
+    - IN_PROGRESS
+    - COMPLETED
+    - CANCELLED
+    - NO_SHOW
+    - RESCHEDULED_BY_VIP
+
+  appointments.booking_source: [FLUTTER_APP, VOICE_AI, WEB, VIP_LIAISON, DASHBOARD]
+
+  # --- History actions ---
+  appointment_history.action: [CREATED, CONFIRMED, RESCHEDULED, CANCELLED, CHECKED_IN, COMPLETED]
+
+  # --- VIP delegation lifecycle ---
+  vip_delegations.status: [SCHEDULED, ACTIVE_LOCKDOWN, COMPLETED, CANCELLED]
+
+  # --- Chat ---
+  chat_messages.role: [user, assistant, system]
+  chat_messages.channel: [FLUTTER_MOBILE, VOICE_REALTIME, WEB, VIP_LIAISON]
+
+  # --- Doctor schedule ---
+  doctor_schedules.day_of_week: "0=Sunday, 1=Monday, ..., 6=Saturday"
+
+# ============================================================================
+# SEMANTIC NOTES — guidance for the LLM
+# ============================================================================
+semantic_notes:
+  # --- Identity & Login (CRITICAL) ---
+  - "USER IDENTIFICATION: patients.email is UNIQUE (case-insensitive). This is the primary login identifier."
+  - "LOGIN FLOW: 1) Find patient by LOWER(email). 2) Verify with: crypt(input_password, password_hash) = password_hash. 3) Issue JWT with patient.id and role."
+  - "patients.phone is also UNIQUE — can be used as alternative login."
+  - "NEVER return password_hash, auth_pin, or fcm_token in any SELECT result sent to the client."
+
+  # --- VIP Detection ---
+  - "VIP DETECTION: patient_type = 'VIP'."
+  - "VIP accounts represent VIP dignitaries and official delegations with protocol services."
+  - "Only patients with patient_type='VIP' can create vip_delegations."
+
+  # --- Naming & Search ---
+  - "All name columns: *_ar for Arabic, *_en for English. Both are stored in parallel."
+  - "Doctor names in Arabic may be Latin transliterations (e.g. 'د. Sultan Al Mansouri'). Match with ILIKE on both name_ar and name_en."
+  - "To resolve a doctor from user text: strip honorifics (د., الدكتور, Dr., Doctor, استشاري) then match."
+
+  # --- Query safety ---
+  - "Always filter doctors and departments with is_active = TRUE unless the user asks otherwise."
+  - "For 'my appointments' queries: use patient_id from authenticated JWT context, never from user input."
+  - "Use ILIKE for all name searches (case-insensitive)."
+  - "All identifiers are LOWERCASE UNQUOTED. Never use double quotes or capital letters."
+
+  # --- Data relationships ---
+  - "appointments table has hospital_id AND department_id AND doctor_id — all three must be consistent with the doctor's actual placement."
+  - "appointment_history.appointment_id must reference a valid appointment."
+  - "displaced_appointment_log entries are created only when a VIP delegation displaces a public appointment."
+
+  # --- JSONB usage ---
+  - "chat_messages.extra_data is JSONB — use it to store intents, action results, and metadata as structured JSON."
+
+# ============================================================================
+# BUSINESS RULES
+# ============================================================================
+business_rules:
+  appointment_overlap: |
+    Two appointments conflict if ALL of the following hold:
+      - existing.start_at < requested_end
+      - existing.end_at > requested_start
+      - existing.status NOT IN ('CANCELLED', 'NO_SHOW', 'RESCHEDULED_BY_VIP')
+    Always exclude the appointment being modified (if any) via: id != :current_id
+
+  vip_window_lockdown: |
+    When securing a department for a VIP delegation:
+      1. Identify all overlapping appointments in that department (status NOT IN CANCELLED/NO_SHOW, is_vip_booking=FALSE).
+      2. Reschedule each by +3 hours (or next available slot).
+      3. Log each move in displaced_appointment_log with bilingual notification_ar and notification_en.
+      4. Insert one row in vip_delegations with status='ACTIVE_LOCKDOWN'.
+      5. Insert one VIP appointment in appointments with is_vip_booking=TRUE, booking_source='VIP_LIAISON'.
+
+  password_hashing: |
+    Hash: crypt(password, gen_salt('bf', 10))
+    Verify: crypt(input_password, password_hash) = password_hash
+
+  timezone: |
+    UAE local time. Use TIMESTAMPTZ. When inserting, prefer explicit '+04' offset.
+
+# ============================================================================
+# SECURITY RULES (HARD CONSTRAINTS)
+# ============================================================================
+security_notes:
+  - "NEVER generate DELETE, DROP, TRUNCATE, or ALTER statements."
+  - "NEVER SELECT password_hash, auth_pin, or fcm_token columns."
+  - "ALWAYS parameterize user input: %(name)s::uuid, %(name)s::timestamp, etc. Never string concatenate."
+  - "For patient personal data: filter by patient_id extracted from JWT, never from request body."
+  - "All INSERT/UPDATE must include explicit ::uuid / ::timestamptz casts for typed parameters."
