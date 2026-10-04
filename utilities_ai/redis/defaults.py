@@ -1,0 +1,1 @@
+REDIS_DATABASE = 0

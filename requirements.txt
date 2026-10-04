@@ -16,3 +16,8 @@ pglast>=6.0
 pyjwt>=2.8.0
 concurrent-log-handler>=0.9.29
 hypercorn>=0.17
+aiofiles
+pillow
+pandas
+ipython
+img2pdf
