@@ -18,6 +18,7 @@ from .node_schemas import (
     ReserveAppointmentInput,
     SQLNodeOutputReport,
     VIPDisplacementInput,
+    RealtimeSessionPayload,
 )
 from .state_schema import AIInputSchema, AIOutputSchema, AIOverallSchema
 
@@ -42,4 +43,5 @@ __all__ = [
     "ModifyAppointmentInput",
     "VIPDisplacementInput",
     "SQLNodeOutputReport",
+    "RealtimeSessionPayload",
 ]

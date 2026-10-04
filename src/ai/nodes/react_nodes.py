@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from typing import Any, Optional
 from langchain_core.messages import AIMessage, HumanMessage
 from utilities_ai.chains.helpers import fetch_system_prompt_only, manage_system_message
@@ -34,10 +35,11 @@ class ReactNodes:
         if not messages:
             messages.append(HumanMessage(content=query))
 
-        # Format authenticated patient context
-        patient_context = ""
+        # Format live system timestamp and authenticated patient context
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
+        patient_context = f"\n### CURRENT LIVE SYSTEM TIME:\n- Today: {now_str} (Asia/Dubai GST timezone)\n- Always resolve relative terms like 'today', 'tomorrow', 'next week', 'غداً', 'بعد قليل' relative to this current timestamp.\n"
         if user_data:
-            patient_context = f"\n### AUTHENTICATED PATIENT CONTEXT:\n{json.dumps(user_data, ensure_ascii=False, indent=2)}\n"
+            patient_context += f"\n### AUTHENTICATED PATIENT CONTEXT:\n{json.dumps(user_data, ensure_ascii=False, indent=2)}\n"
 
         # Robust VIP detection
         is_vip = bool(

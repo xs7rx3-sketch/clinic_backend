@@ -395,4 +395,13 @@ class AppointmentResolutionResult(BaseModel):
     next_recommended_action: NextRecommendedAction = Field(description="CLARIFY if multiple appointments or not found, NONE or MODIFY if single match")
 
 
+class RealtimeSessionPayload(BaseModel):
+    """Payload configuration for live OpenAI Realtime WebRTC voice sessions."""
+    voice: Optional[str] = Field(default="alloy", description="Voice output model (alloy, verse, shimmer, etc.)")
+    patient_name: Optional[str] = Field(default=None, description="Patient name for personalized greeting")
+    is_vip: Optional[bool] = Field(default=False, description="VIP dignitary protocol flag")
+    custom_instructions: Optional[str] = Field(default=None, description="Additional custom instructions")
+
+
+
 
