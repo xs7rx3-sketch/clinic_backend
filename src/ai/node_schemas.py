@@ -398,6 +398,7 @@ class AppointmentResolutionResult(BaseModel):
 class RealtimeSessionPayload(BaseModel):
     """Payload configuration for live OpenAI Realtime WebRTC voice sessions."""
     voice: Optional[str] = Field(default="alloy", description="Voice output model (alloy, verse, shimmer, etc.)")
+    patient_id: Optional[str] = Field(default=None, description="UUID of the patient")
     patient_name: Optional[str] = Field(default=None, description="Patient name for personalized greeting")
     is_vip: Optional[bool] = Field(default=False, description="VIP dignitary protocol flag")
     custom_instructions: Optional[str] = Field(default=None, description="Additional custom instructions")
