@@ -5,6 +5,7 @@ import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from langchain_core.messages import AIMessage, HumanMessage
 
+from src.ai.formatting import clean_conversational_text
 from src.ai.prompts.voice_prompts import BASE_VOICE_INSTRUCTIONS
 from src.api.config import LLM_API_KEY
 from src.api.dependencies import get_ai_graph
@@ -254,7 +255,7 @@ async def execute_voice_tool(
 
     try:
         result = await graph.ainvoke(state_in)
-        final_answer = result.get("answer") or ""
+        final_answer = clean_conversational_text(result.get("answer"))
     except Exception as e:
         log.exception("Error executing AI Graph in voice tool: %s", e)
         final_answer = "عذراً، حدث خطأ أثناء الاتصال بنظام المستشفى. يرجى إعادة المحاولة."

@@ -116,7 +116,8 @@ def appointment_confirmation_prompt(
     RULES:
     1. Formulate a polite, professional, and clear confirmation message for the patient.
     2. Confirm the doctor name, department, time, and status in the clinic database.
-    3. Set `next_recommended_action = '{NextRecommendedAction.NONE.value}'`.
+    3. NEVER include raw database UUIDs or internal IDs in the user-facing message.
+    4. Set `next_recommended_action = '{NextRecommendedAction.NONE.value}'`.
     """
     return structure_prompt(f"Formulate confirmation report: {json.dumps(details, ensure_ascii=False)}", system_prompt)
 
@@ -163,6 +164,7 @@ def patient_schedule_summary_prompt(
     1. If zero appointments: Set `status = '{SQLReportStatus.NOT_FOUND.value}'`, inform the patient kindly that they have no booked appointments, and invite them to schedule one.
     2. If appointments exist:
        - Group/highlight upcoming confirmed appointments with doctor name, department, and time.
+       - NEVER include internal database UUIDs (e.g. appointment IDs).
        - Inform the patient of any instructions or options to reschedule or cancel if needed.
        - Set `status = '{SQLReportStatus.SUCCESS.value}'`, `next_recommended_action = '{NextRecommendedAction.NONE.value}'`.
     """

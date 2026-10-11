@@ -3,6 +3,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from langchain_core.messages import AIMessage, HumanMessage
 
+from src.ai.formatting import clean_conversational_text
 from src.api.dependencies import get_ai_graph
 from src.api.schemas.chat import ChatRequest, ChatResponse, SaveChatMessageRequest
 from src.database.chat_store import clear_chat_history, get_chat_history, save_chat_message
@@ -59,7 +60,7 @@ async def chat_with_ai(
     }
 
     result = await graph.ainvoke(state_in)
-    final_answer = result.get("answer") or ""
+    final_answer = clean_conversational_text(result.get("answer"))
 
     # Save AI response to Neon
     if pid and final_answer:

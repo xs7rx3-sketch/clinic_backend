@@ -440,7 +440,24 @@ def search_clinical_entities(search_term: Optional[str] = None, hospital_id: Opt
                 dept_stmt = dept_stmt.where(Department.hospital_id == h_uuid)
                 doc_stmt = doc_stmt.where(Department.hospital_id == h_uuid)
 
-        if clean:
+        # Detect general inquiries e.g. "ما هي العيادات المتوفرة لديك؟", "الأقسام", "all", etc.
+        clean_lower = clean.lower()
+        general_terms = {
+            "all", "list", "clinics", "departments", "doctors", "hospital",
+            "كل", "الكل", "جميع", "عيادات", "العيادات", "اقسام", "الأقسام", "الاقسام الطبية",
+            "العيادات المتوفرة", "العيادات المتاحة", "الأطباء", "الاطباء", "الدكاترة", "التخصصات"
+        }
+        is_general_query = (
+            not clean
+            or clean_lower in general_terms
+            or any(clean_lower.startswith(prefix) for prefix in [
+                "ما هي العيادات", "ماهي العيادات", "ما هي الأقسام", "ماهي الأقسام",
+                "ما هي التخصصات", "ماهي التخصصات", "اعرض العيادات", "اعرض الأقسام",
+                "show clinics", "list clinics", "available clinics", "what clinics"
+            ])
+        )
+
+        if clean and not is_general_query:
             pat = f"%{clean}%"
             dept_stmt = dept_stmt.where(
                 or_(
@@ -460,7 +477,6 @@ def search_clinical_entities(search_term: Optional[str] = None, hospital_id: Opt
 
         depts = session.scalars(dept_stmt.order_by(Department.name_ar).limit(20)).all()
         docs = session.execute(doc_stmt.order_by(desc(Doctor.experience_years)).limit(10)).all()
-
         return {
             "departments": [
                 {"id": str(d.id), "name_ar": d.name_ar, "name_en": d.name_en, "code": d.code}

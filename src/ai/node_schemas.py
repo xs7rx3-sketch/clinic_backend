@@ -210,7 +210,14 @@ class NodeDecision(BaseModel):
     )
     response_to_user: Optional[str] = Field(
         default=None,
-        description="The spoken or text response to the user when next_node is 'end'."
+        description=(
+            "The spoken or text response to the user when next_node is 'end'. "
+            "STRICT RULES: "
+            "1. Output clean, conversational text suitable for mobile screens and voice calls. "
+            "2. NEVER format as a markdown document or file. NEVER use markdown headings (#, ##, ###), markdown tables (|---|), or code fences (```). Use clean conversational sentences or simple bullet dots (•) instead. "
+            "3. NEVER disclose internal database UUIDs (such as appointment IDs, doctor IDs, or patient IDs). "
+            "4. NEVER disclose passwords, hashes, PINs, tokens, or information regarding any other patient."
+        )
     )
 
 

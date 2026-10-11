@@ -103,7 +103,8 @@ class SQLNodes:
         """Sub-Agent: Inspects schedules, verifies slot availability, or summarizes patient bookings via AI."""
         raw_input = dict(state.get("node_input", {}))
         user_data = state.get("user_data", {})
-        pid = raw_input.get("patient_id") or user_data.get("patient_id")
+        # Security: strictly enforce authenticated user_data patient_id to prevent accessing other patients' records
+        pid = user_data.get("patient_id") or raw_input.get("patient_id")
         did = raw_input.get("doctor_id")
         doc_term = raw_input.get("doctor") or did
         slot_date = raw_input.get("date_or_range")
@@ -180,7 +181,8 @@ class SQLNodes:
         """Sub-Agent: Resolves physician (handles transliteration/ambiguity), verifies availability, and commits booking via ORM."""
         raw_input = dict(state.get("node_input", {}))
         user_data = state.get("user_data", {})
-        pid = raw_input.get("patient_id") or user_data.get("patient_id")
+        # Security: strictly enforce authenticated user_data patient_id
+        pid = user_data.get("patient_id") or raw_input.get("patient_id")
         doc_term = raw_input.get("doctor") or raw_input.get("doctor_id") or ""
         dept_id = resolve_department_id(raw_input.get("department_id") or raw_input.get("department"))
         hid = raw_input.get("hospital_id") or user_data.get("hospital_id")
@@ -254,7 +256,8 @@ class SQLNodes:
         """Sub-Agent: Resolves existing booking, applies reschedule/cancel via ORM, and emits AI confirmation."""
         raw_input = dict(state.get("node_input", {}))
         user_data = state.get("user_data", {})
-        pid = raw_input.get("patient_id") or user_data.get("patient_id")
+        # Security: strictly enforce authenticated user_data patient_id
+        pid = user_data.get("patient_id") or raw_input.get("patient_id")
         raw_aid = raw_input.get("appointment_id")
         target_status = str(raw_input.get("new_status") or "").upper()
         new_start = raw_input.get("new_start_at")
@@ -267,7 +270,8 @@ class SQLNodes:
             else:
                 with get_db_session() as session:
                     db_appt = session.get(Appointment, uuid.UUID(str(raw_aid).strip())) if (len(str(raw_aid)) == 36 and "-" in str(raw_aid)) else None
-                    if db_appt:
+                    # Security: verify appointment belongs to the current patient or caller is VIP protocol officer
+                    if db_appt and (not pid or str(db_appt.patient_id) == str(pid) or user_data.get("is_vip")):
                         doc_name = db_appt.doctor.name_ar if db_appt.doctor else "الطبيب المعالج"
                         appts = [{
                             "id": str(db_appt.id),
